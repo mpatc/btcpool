@@ -585,6 +585,7 @@ void StratumJobEx::makeMiningNotifyStr() {
 
   // we don't put jobId here, session will fill with the shortJobId
   miningNotify1_ = "{\"id\":null,\"method\":\"mining.notify\",\"params\":[\"";
+
   miningNotify2_ = Strings::Format("\",\"%s\",\"%s\",\"%s\""
                                    ",[%s]"
                                    ",\"%08x\",\"%08x\",\"%08x\",%s"
@@ -594,6 +595,16 @@ void StratumJobEx::makeMiningNotifyStr() {
                                    merkleBranchStr.c_str(),
                                    sjob_->nVersion_, sjob_->nBits_, sjob_->nTime_,
                                    isClean_ ? "true" : "false");
+
+  // always set clean to true, reset of them is the same with miningNotify2_
+  miningNotify2Clean_ = Strings::Format("\",\"%s\",\"%s\",\"%s\""
+                                   ",[%s]"
+                                   ",\"%08x\",\"%08x\",\"%08x\",true"
+                                   "]}\n",
+                                   sjob_->prevHashBeStr_.c_str(),
+                                   sjob_->coinbase1_.c_str(), sjob_->coinbase2_.c_str(),
+                                   merkleBranchStr.c_str(),
+                                   sjob_->nVersion_, sjob_->nBits_, sjob_->nTime_);
 }
 
 void StratumJobEx::markStale() {
@@ -649,8 +660,10 @@ StratumServer::StratumServer(const char *ip, const unsigned short port,
                              const char *kafkaBrokers, const string &userAPIUrl,
                              const MysqlConnectInfo &poolDBInfo,
                              const uint8_t serverId, const string &fileLastNotifyTime,
-                             bool isEnableSimulator, bool isSubmitInvalidBlock)
-:running_(true), ip_(ip), port_(port), serverId_(serverId),
+                             bool isEnableSimulator, bool isSubmitInvalidBlock,
+                             const int32_t shareAvgSeconds)
+:running_(true), server_(shareAvgSeconds),
+ip_(ip), port_(port), serverId_(serverId),
 fileLastNotifyTime_(fileLastNotifyTime),
 kafkaBrokers_(kafkaBrokers), userAPIUrl_(userAPIUrl), poolDBInfo_(poolDBInfo),
 isEnableSimulator_(isEnableSimulator), isSubmitInvalidBlock_(isSubmitInvalidBlock)
@@ -684,13 +697,14 @@ void StratumServer::run() {
 }
 
 ///////////////////////////////////// Server ///////////////////////////////////
-Server::Server(): base_(nullptr), signal_event_(nullptr), listener_(nullptr),
+Server::Server(const int32_t shareAvgSeconds):
+base_(nullptr), signal_event_(nullptr), listener_(nullptr),
 kafkaProducerShareLog_(nullptr),
 kafkaProducerSolvedShare_(nullptr),
 kafkaProducerNamecoinSolvedShare_(nullptr),
 kafkaProducerCommonEvents_(nullptr),
 isEnableSimulator_(false), isSubmitInvalidBlock_(false),
-kShareAvgSeconds_(10), // TODO: read from cfg
+kShareAvgSeconds_(shareAvgSeconds),
 jobRepository_(nullptr), userInfo_(nullptr), sessionIDManager_(nullptr)
 {
 }

@@ -54,6 +54,10 @@
 
 #define BTCCOM_MINER_AGENT_PREFIX "btccom-agent/"
 
+// invalid share sliding window size
+#define INVALID_SHARE_SLIDING_WINDOWS_SIZE       60  // unit: seconds
+#define INVALID_SHARE_SLIDING_WINDOWS_MAX_LIMIT  20  // max number
+
 class Server;
 class StratumJobEx;
 class DiffController;
@@ -67,8 +71,8 @@ public:
   static const int32_t kDiffWindow_    = 900;   // time window, seconds, 60*N
   static const int32_t kRecordSeconds_ = 10;    // every N seconds as a record
 #ifdef NDEBUG
-  // If not debugging, set default to 8192
-  static const int32_t kDefaultDiff_   = 8192;  // default diff, 2^N
+  // If not debugging, set default to 16384
+  static const int32_t kDefaultDiff_   = 16384;  // default diff, 2^N
 #else
   // debugging enabled
   static const int32_t kDefaultDiff_   = 128;  // default diff, 2^N
@@ -208,6 +212,9 @@ private:
 
   atomic<bool> isDead_;
 
+  // invalid share counter
+  StatsWindow<int64_t> invalidSharesCounter_;
+
   uint8_t allocShortJobId();
 
   void setup();
@@ -253,7 +260,7 @@ public:
   bool isDead();
 
   void sendSetDifficulty(const uint64_t difficulty);
-  void sendMiningNotify(shared_ptr<StratumJobEx> exJobPtr);
+  void sendMiningNotify(shared_ptr<StratumJobEx> exJobPtr, bool isFirstJob=false);
   void sendData(const char *data, size_t len);
   inline void sendData(const string &str) {
     sendData(str.data(), str.size());

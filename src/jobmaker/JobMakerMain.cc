@@ -38,15 +38,24 @@
 
 #include "Utils.h"
 #include "JobMaker.h"
+#include "Zookeeper.h"
 
 using namespace std;
 using namespace libconfig;
 
+#define JOBMAKER_LOCK_NODE_PATH "/locks/jobmaker"
+
 JobMaker *gJobMaker = nullptr;
+Zookeeper *gZookeeper = nullptr;
 
 void handler(int sig) {
   if (gJobMaker) {
     gJobMaker->stop();
+  }
+
+  if (gZookeeper) {
+    delete gZookeeper;
+    gZookeeper = nullptr;
   }
 }
 
@@ -109,6 +118,16 @@ int main(int argc, char **argv) {
     return(EXIT_FAILURE);
   }
 
+  try {
+    // get lock from zookeeper
+    gZookeeper = new Zookeeper(cfg.lookup("zookeeper.brokers"));
+    gZookeeper->getLock(JOBMAKER_LOCK_NODE_PATH);
+
+  } catch(const ZookeeperException &zooex) {
+    LOG(FATAL) << zooex.what();
+    return(EXIT_FAILURE);
+  }
+
   signal(SIGTERM, handler);
   signal(SIGINT,  handler);
 
@@ -124,14 +143,22 @@ int main(int argc, char **argv) {
     }
 
     string fileLastJobTime;
-    uint32_t stratumJobInterval, gbtLifeTime;
+
+    // with default values
+    uint32_t stratumJobInterval = 20;  // seconds
+    uint32_t gbtLifeTime        = 90;
+    uint32_t emptyGbtLifeTime   = 15;
+    uint32_t blockVersion       = 0u;
+
     cfg.lookupValue("jobmaker.stratum_job_interval", stratumJobInterval);
-    cfg.lookupValue("jobmaker.gbt_life_time", gbtLifeTime);
-    cfg.lookupValue("jobmaker.file_last_job_time", fileLastJobTime);
+    cfg.lookupValue("jobmaker.gbt_life_time",        gbtLifeTime);
+    cfg.lookupValue("jobmaker.empty_gbt_life_time",  emptyGbtLifeTime);
+    cfg.lookupValue("jobmaker.file_last_job_time",   fileLastJobTime);
+    cfg.lookupValue("jobmaker.block_version",        blockVersion);
 
     gJobMaker = new JobMaker(cfg.lookup("kafka.brokers"), stratumJobInterval,
                              cfg.lookup("pool.payout_address"), gbtLifeTime,
-                             fileLastJobTime);
+                             emptyGbtLifeTime, fileLastJobTime, blockVersion);
 
     if (!gJobMaker->init()) {
       LOG(FATAL) << "init failure";

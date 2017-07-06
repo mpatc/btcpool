@@ -20,7 +20,7 @@ bash ./install_btcpool.sh
 apt-get update
 
 apt-get install -y build-essential autotools-dev libtool autoconf automake pkg-config cmake
-apt-get install -y openssl libssl-dev libcurl4-openssl-dev libconfig++-dev libboost-all-dev libgmp-dev libmysqlclient-dev
+apt-get install -y openssl libssl-dev libcurl4-openssl-dev libconfig++-dev libboost-all-dev libgmp-dev libmysqlclient-dev libzookeeper-mt-dev
 ```
 
 * zmq-v4.1.5
@@ -182,6 +182,11 @@ Use `supervisor` to manager services.
 ```
 apt-get install supervisor
 
+#
+# change open file limits, vim /etc/supervisor/supervisord.conf
+# in the [supervisord] section, add 'minfds=65535'.
+# $ service supervisor restart
+#
 cd /work/btcpool/build
 
 
